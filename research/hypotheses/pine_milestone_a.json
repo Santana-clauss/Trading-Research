@@ -1,0 +1,27 @@
+{
+  "id": "PINE_A_V1",
+  "status": "implemented_source_not_tradingview_verified",
+  "review_date": "2026-10-18",
+  "parent_hypotheses": [
+    "H01",
+    "H02",
+    "H03",
+    "H04",
+    "H07"
+  ],
+  "note": "Separate indicator variants; do not rewrite the original preregistered intrabar touch model as if equivalent. High-confluence checklist is not a probability estimate.",
+  "variants": {
+    "A": "Closed-bar first overlap episode, signal close reference, not a limit fill.",
+    "B": "Strictly later directional or reclaim confirmation within 3 bars; signal close reference.",
+    "context": "Default local structure plus optional completed HTF structure/EMA gate.",
+    "session": "Chart market open by default via feed-defined session.ismarket; not a custom liquidity-hours detector.",
+    "profile": "Prior-bars OHLCV candle-range volume allocation proxy for POC/VA; not built-in lower-timeframe profile data.",
+    "confluence": "Seven-point descriptive checklist (HTF, local structure, B confirmation, POC side, value-area side, EMA alignment, relative volume); threshold 5/7 by default; uncalibrated and not predictive probability."
+  },
+  "specification": "docs/tradingview_indicator.md",
+  "traceability": "research/research_to_code.csv",
+  "performance": "NOT TESTED",
+  "compilation": "UNVERIFIED",
+  "baseline_testing": "Milestone C only, after actual TradingView compile/replay",
+  "input_recording": "Use TradingView input snapshot and script SHA256 in research/pine_validation_runs.csv; config.json does not configure a standalone Pine script."
+}

@@ -1,0 +1,606 @@
+//@version=6
+indicator("XAU/USD Candidate Zones & Entries [Research A]", overlay = true, max_boxes_count = 200, max_labels_count = 200, max_lines_count = 100, max_bars_back = 1000)
+// Research hypotheses, not verified institutional orders. No trades are executed.
+// Traceability: research/research_to_code.csv; exact rules: docs/tradingview_indicator.md.
+
+string gTime = "01 Timeframes and structure"
+string entryTf = input.timeframe("15", "Entry timeframe (must match chart)", group = gTime)
+string contextTf = input.timeframe("60", "Higher timeframe", group = gTime)
+int leftBars = input.int(3, "Pivot left bars", minval = 1, maxval = 20, group = gTime)
+int rightBars = input.int(3, "Pivot right confirmation bars", minval = 1, maxval = 20, group = gTime)
+bool requireLocal = input.bool(true, "Require entry-timeframe structure alignment", group = gTime)
+bool requireHtf = input.bool(true, "Require completed HTF bias alignment", group = gTime)
+bool contextEma = input.bool(true, "HTF bias also requires EMA agreement", group = gTime)
+int emaLen = input.int(50, "HTF EMA length", minval = 2, maxval = 300, group = gTime)
+int biasLife = input.int(48, "Neutral after this many HTF bars without a break", minval = 1, maxval = 500, group = gTime)
+
+string gZone = "02 Candidate zones"
+int searchBars = input.int(10, "Search last opposing candle within bars", minval = 1, maxval = 100, group = gZone)
+string boundaryRule = input.string("Full candle", "Zone boundaries", options = ["Full candle", "Body"], group = gZone)
+bool requireDeparture = input.bool(true, "Require BOS displacement threshold", group = gZone)
+float departureAtr = input.float(1.0, "BOS body / prior ATR minimum", minval = 0.0, step = 0.1, group = gZone)
+int zoneLife = input.int(96, "Zone lifetime in entry bars", minval = 1, maxval = 2000, group = gZone)
+int maxZones = input.int(12, "Maximum retained zones (includes inactive)", minval = 1, maxval = 40, group = gZone)
+string invalidation = input.string("Close", "Far-boundary invalidation", options = ["Close", "Wick"], group = gZone)
+bool firstOnly = input.bool(true, "First retest episode only", group = gZone)
+bool repeatVisit = input.bool(false, "Allow model rearming on a NEW visit", group = gZone)
+
+string gEntry = "03 Entry hypotheses"
+bool enableAggressive = input.bool(false, "A: closed-bar zone touch", group = gEntry)
+bool enableConfirmed = input.bool(true, "B: confirmation AFTER touch bar", group = gEntry)
+int confirmBars = input.int(3, "Confirmation window after first touch", minval = 1, maxval = 20, group = gEntry)
+string confirmRule = input.string("Reclaim + retest break", "Confirmation candle", options = ["Directional close", "Reclaim near edge", "Reclaim + retest break"], group = gEntry)
+float minBodyFraction = input.float(0.0, "Minimum entry candle body / range", minval = 0.0, maxval = 1.0, step = 0.05, group = gEntry)
+bool distanceFilter = input.bool(false, "Limit signal close distance from near edge", group = gEntry)
+float maxDistanceAtr = input.float(2.0, "Maximum distance / prior ATR", minval = 0.0, step = 0.1, group = gEntry)
+
+string gRisk = "04 Hypothetical levels (no position sizing)"
+int atrLen = input.int(14, "ATR length", minval = 2, maxval = 200, group = gRisk)
+float stopAtr = input.float(0.1, "Stop buffer: prior ATR multiple", minval = 0.0, step = 0.05, group = gRisk)
+int stopTicks = input.int(1, "Minimum stop buffer in chart ticks", minval = 1, group = gRisk)
+float targetR = input.float(1.5, "Fixed target R", minval = 0.1, step = 0.1, group = gRisk)
+string targetMode = input.string("Fixed R", "Take-profit mode", options = ["Fixed R", "Nearest opposing zone"], group = gRisk)
+float minimumR = input.float(1.0, "Reject setups below planned R", minval = 0.1, step = 0.1, group = gRisk)
+int maxPlans = input.int(1, "Retained level sets", minval = 1, maxval = 20, group = gRisk)
+
+string gFilter = "05 Session / volatility / volume context"
+string sessionMode = input.string("Chart market open", "Sessions", options = ["Chart market open", "All", "Asian", "London", "New York", "Selected"], group = gFilter)
+bool selectAsia = input.bool(true, "Selected: Asian", group = gFilter)
+bool selectLondon = input.bool(true, "Selected: London", group = gFilter)
+bool selectNy = input.bool(true, "Selected: New York", group = gFilter)
+string asiaHours = input.session("0900-1800", "Asian hours", group = gFilter)
+string asiaTz = input.string("Asia/Tokyo", "Asian IANA timezone", group = gFilter)
+string londonHours = input.session("0800-1700", "London hours", group = gFilter)
+string londonTz = input.string("Europe/London", "London IANA timezone", group = gFilter)
+string nyHours = input.session("0800-1700", "New York hours", group = gFilter)
+string nyTz = input.string("America/New_York", "New York IANA timezone", group = gFilter)
+bool volatilityFilter = input.bool(false, "Filter prior ATR / prior close (%)", group = gFilter)
+float minAtrPct = input.float(0.02, "Minimum ATR %", minval = 0.0, step = 0.01, group = gFilter)
+float maxAtrPct = input.float(2.0, "Maximum ATR %", minval = 0.0, step = 0.1, group = gFilter)
+bool volumeFilter = input.bool(false, "Require relative chart-feed volume (not OFI)", group = gFilter)
+int volumeLen = input.int(20, "Previous-volume mean length", minval = 2, maxval = 300, group = gFilter)
+float minRelVolume = input.float(1.5, "Relative volume minimum", minval = 0.0, step = 0.1, group = gFilter)
+int profileBars = input.int(96, "Volume profile lookback bars", minval = 24, maxval = 300, group = gFilter)
+int profileRows = input.int(24, "Volume profile price rows", minval = 8, maxval = 64, group = gFilter)
+float valueAreaPercent = input.float(70.0, "Volume profile value area %", minval = 50.0, maxval = 90.0, step = 1.0, group = gFilter)
+int minConfluenceScore = input.int(5, "Mark high confluence at score", minval = 1, maxval = 7, group = gFilter)
+
+string gView = "06 Display and alerts"
+int visibleZonesPerSide = input.int(2, "Visible zones per side", minval = 1, maxval = 20, group = gView)
+bool detailedTable = input.bool(false, "Detailed research table", group = gView)
+bool showZones = input.bool(true, "Show zone boxes and status", group = gView)
+bool showStructure = input.bool(false, "Show BOS / CHoCH labels", group = gView)
+bool showSwings = input.bool(false, "Show pivots WHEN confirmed", group = gView)
+bool showEntries = input.bool(true, "Show BUY / SELL markers (historical + live)", group = gView)
+bool keepHistoricalZones = input.bool(false, "Retain archived historical zone boxes", group = gView)
+int historicalZoneLimit = input.int(80, "Maximum archived zone boxes", minval = 1, maxval = 150, group = gView)
+bool showHistoricalLevels = input.bool(false, "Plot entry / SL / TP dots on every past signal", group = gView)
+bool showLevels = input.bool(true, "Show entry / stop / target levels", group = gView)
+bool showReasons = input.bool(false, "Show signal reason labels", group = gView)
+bool showSessions = input.bool(false, "Shade session hours", group = gView)
+bool showDaily = input.bool(false, "Show completed previous-day high / low", group = gView)
+bool showProfile = input.bool(true, "Show prior-bars volume profile levels", group = gView)
+bool showTable = input.bool(true, "Show status table", group = gView)
+bool dynamicAlerts = input.bool(false, "Enable detailed alert() messages", group = gView)
+
+// One break per confirmed swing. A reversal of the last event direction is CHoCH.
+// Test known levels BEFORE installing today's newly confirmed pivots.
+f_structure(int l, int r) =>
+    var float swingHi = na
+    var float swingLo = na
+    var float prevHi = na
+    var float prevLo = na
+    var bool hiUsed = false
+    var bool loUsed = false
+    var int direction = 0
+    var int lastBreakBar = na
+    float ph = ta.pivothigh(high, l, r)
+    float pl = ta.pivotlow(low, l, r)
+    bool up = not na(swingHi) and not hiUsed and close > swingHi
+    bool down = not na(swingLo) and not loUsed and close < swingLo
+    int event = 0
+    if up and not down
+        event := direction == -1 ? 2 : 1
+        direction := 1
+        hiUsed := true
+        lastBreakBar := bar_index
+    if down and not up
+        event := direction == 1 ? -2 : -1
+        direction := -1
+        loUsed := true
+        lastBreakBar := bar_index
+    if not na(ph)
+        prevHi := swingHi
+        swingHi := ph
+        hiUsed := false
+    if not na(pl)
+        prevLo := swingLo
+        swingLo := pl
+        loUsed := false
+    bool contraction = not na(prevHi) and not na(prevLo) and swingHi <= prevHi and swingLo >= prevLo
+    int age = na(lastBreakBar) ? 100000 : bar_index - lastBreakBar
+    [direction, event, swingHi, swingLo, ph, pl, contraction, age]
+
+// R01: EVERY returned HTF value is offset INSIDE security context.
+// lookahead_on is safe only with these offsets; never use unfinished H1 values.
+f_htf() =>
+    [d, ev, sh, sl, ph, pl, ranging, age] = f_structure(leftBars, rightBars)
+    float ema = ta.ema(close, emaLen)
+    int bias = age > biasLife or ranging or na(sh) or na(sl) ? 0 : d
+    if contextEma and (na(ema) or (bias == 1 and close <= ema) or (bias == -1 and close >= ema))
+        bias := 0
+    [bias[1], d[1], ev[1], ema[1], close[1], time_close[1], ranging[1]]
+
+f_event(int ev) =>
+    ev == 2 ? "Bull CHoCH" : ev == -2 ? "Bear CHoCH" : ev == 1 ? "Bull BOS" : ev == -1 ? "Bear BOS" : "None"
+
+f_bias(int d) =>
+    d == 1 ? "Bullish" : d == -1 ? "Bearish" : "Neutral / range / conflict"
+
+f_price(float p) =>
+    str.tostring(p, format.mintick)
+
+// Approximate volume-at-price from prior OHLCV bars; candle volume is spread uniformly across each bar range.
+f_volume_profile() =>
+    float profileFloor = ta.lowest(low[1], profileBars)
+    float profileCeiling = ta.highest(high[1], profileBars)
+    float rowSize = (profileCeiling - profileFloor) / profileRows
+    float poc = na
+    float vah = na
+    float val = na
+    if not na(profileFloor) and not na(profileCeiling) and rowSize > 0
+        array<float> bins = array.new_float(profileRows, 0.0)
+        float totalVolume = 0.0
+        for offset = 1 to profileBars
+            float barLow = low[offset]
+            float barHigh = high[offset]
+            float barVolume = volume[offset]
+            if not na(barLow) and not na(barHigh) and not na(barVolume) and barVolume > 0
+                int firstRow = math.max(0, math.min(profileRows - 1, int(math.floor((barLow - profileFloor) / rowSize))))
+                int lastRow = math.max(0, math.min(profileRows - 1, int(math.floor((barHigh - profileFloor) / rowSize))))
+                float barRange = barHigh - barLow
+                if barRange > 0
+                    for row = firstRow to lastRow
+                        float rowLow = profileFloor + row * rowSize
+                        float rowHigh = rowLow + rowSize
+                        float overlap = math.max(0.0, math.min(barHigh, rowHigh) - math.max(barLow, rowLow))
+                        float allocatedVolume = barVolume * overlap / barRange
+                        array.set(bins, row, array.get(bins, row) + allocatedVolume)
+                        totalVolume += allocatedVolume
+                else
+                    array.set(bins, firstRow, array.get(bins, firstRow) + barVolume)
+                    totalVolume += barVolume
+        if totalVolume > 0
+            int pocRow = 0
+            float maxRowVolume = array.get(bins, 0)
+            for row = 1 to profileRows - 1
+                float rowVolume = array.get(bins, row)
+                if rowVolume > maxRowVolume
+                    pocRow := row
+                    maxRowVolume := rowVolume
+            int lowerRow = pocRow
+            int upperRow = pocRow
+            float includedVolume = array.get(bins, pocRow)
+            float targetVolume = totalVolume * valueAreaPercent / 100.0
+            while includedVolume < targetVolume and (lowerRow > 0 or upperRow < profileRows - 1)
+                float belowVolume = lowerRow > 0 ? array.get(bins, lowerRow - 1) : -1.0
+                float aboveVolume = upperRow < profileRows - 1 ? array.get(bins, upperRow + 1) : -1.0
+                if aboveVolume > belowVolume and upperRow < profileRows - 1
+                    upperRow += 1
+                    includedVolume += array.get(bins, upperRow)
+                else if lowerRow > 0
+                    lowerRow -= 1
+                    includedVolume += array.get(bins, lowerRow)
+                else
+                    break
+            poc := profileFloor + (pocRow + 0.5) * rowSize
+            val := profileFloor + lowerRow * rowSize
+            vah := profileFloor + (upperRow + 1) * rowSize
+    [poc, vah, val]
+
+type Zone
+    float top
+    float bottom
+    int direction
+    int born
+    int bornTime
+    string eventName
+    int touches = 0
+    int touchBar = na
+    float touchHigh = na
+    float touchLow = na
+    bool inside = false
+    bool active = true
+    bool sentA = false
+    bool sentB = false
+    string status = "Fresh"
+    box drawing = na
+
+type Plan
+    float entry
+    float stop
+    float target
+    int direction
+    int born
+    bool active = true
+    string outcome = "Monitoring hypothetical levels"
+    line entryLine = na
+    line stopLine = na
+    line targetLine = na
+
+var array<Zone> zones = array.new<Zone>()
+var array<box> archivedZoneBoxes = array.new<box>()
+var array<Plan> plans = array.new<Plan>()
+var array<label> notes = array.new<label>()
+
+f_note(int x, float y, string noteText, color shade, bool upward) =>
+    label item = label.new(x, y, noteText, style = upward ? label.style_label_up : label.style_label_down, color = shade, textcolor = color.white, size = size.tiny)
+    array.push(notes, item)
+    if array.size(notes) > 100
+        label.delete(array.shift(notes))
+
+float chartSecs = timeframe.in_seconds()
+float entrySecs = timeframe.in_seconds(entryTf)
+float contextSecs = timeframe.in_seconds(contextTf)
+bool timeframesOk = chartSecs == entrySecs and contextSecs > entrySecs and chart.is_standard
+if barstate.isfirst and entrySecs >= 86400
+    runtime.error("Use an intraday entry timeframe below one day.")
+if barstate.isfirst and contextSecs <= entrySecs
+    runtime.error("Higher timeframe must be greater than the selected entry timeframe.")
+if barstate.isfirst and minAtrPct > maxAtrPct
+    runtime.error("Minimum ATR % must not exceed maximum ATR %.")
+
+[htfBias, htfDirection, htfEvent, htfEma, htfClose, htfKnownAt, htfRange] = request.security(ticker.standard(syminfo.tickerid), contextTf, f_htf(), gaps = barmerge.gaps_off, lookahead = barmerge.lookahead_on)
+[pdh, pdl] = request.security(ticker.standard(syminfo.tickerid), "D", [high[1], low[1]], gaps = barmerge.gaps_off, lookahead = barmerge.lookahead_on)
+[localDirection, structureEvent, swingHigh, swingLow, confirmedHi, confirmedLo, localRange, localAge] = f_structure(leftBars, rightBars)
+float priorAtr = ta.atr(atrLen)[1]
+float priorVolume = ta.sma(volume, volumeLen)[1]
+float relVolume = not na(priorVolume) and priorVolume > 0 ? volume / priorVolume : na
+float atrPct = not na(priorAtr) and close[1] > 0 ? 100.0 * priorAtr / close[1] : na
+float chartEma20 = ta.ema(close, 20)
+float chartEma50 = ta.ema(close, 50)
+[profilePoc, profileVah, profileVal] = f_volume_profile()
+float candleRange = high - low
+float bodyFraction = candleRange > 0 ? math.abs(close - open) / candleRange : 0.0
+bool ready = timeframesOk and not na(priorAtr) and priorAtr > 0 and not na(time_close)
+bool inAsia = not na(time(timeframe.period, asiaHours + ":1234567", asiaTz))
+bool inLondon = not na(time(timeframe.period, londonHours + ":1234567", londonTz))
+bool inNy = not na(time(timeframe.period, nyHours + ":1234567", nyTz))
+bool sessionOk = switch sessionMode
+    "Chart market open" => session.ismarket
+    "Asian" => inAsia
+    "London" => inLondon
+    "New York" => inNy
+    "Selected" => (selectAsia and inAsia) or (selectLondon and inLondon) or (selectNy and inNy)
+    => true
+bool volOk = not volatilityFilter or (not na(atrPct) and atrPct >= minAtrPct and atrPct <= maxAtrPct)
+bool volumeOk = not volumeFilter or (not na(volume) and volume > 0 and not na(relVolume) and relVolume >= minRelVolume)
+bool commonOk = sessionOk and volOk and volumeOk and bodyFraction >= minBodyFraction
+
+// Per-bar events reset on each execution. All mutations/alerts below require close.
+bool buyA = false
+bool sellA = false
+bool buyB = false
+bool sellB = false
+bool zoneCreated = false
+bool zoneInvalidated = false
+bool setupInvalidated = false
+bool setupTargetObserved = false
+float signalEntry = na
+float signalStop = na
+float signalTarget = na
+float signalR = na
+int signalScore = na
+bool signalBestBuy = false
+bool signalBestSell = false
+int signalDir = 0
+string signalModel = ""
+string signalReason = ""
+var int historicalBuys = 0
+var int historicalSells = 0
+var int lastSignalScore = na
+var string lastSignal = "No hypothetical signal yet"
+var string lastZoneStatus = "No zones yet"
+int activeZones = 0
+
+if barstate.isconfirmed and timeframesOk
+    // Existing level sets are observations, never executed trades or P&L.
+    if array.size(plans) > 0
+        for p in plans
+            if p.active and bar_index > p.born
+                bool stopSeen = p.direction == 1 ? low <= p.stop : high >= p.stop
+                bool targetSeen = p.direction == 1 ? high >= p.target : low <= p.target
+                if stopSeen or targetSeen
+                    p.active := false
+                    p.outcome := stopSeen ? "Stop observed (no fill claim)" : "Target observed (no fill claim)"
+                    setupInvalidated := setupInvalidated or stopSeen
+                    setupTargetObserved := setupTargetObserved or (targetSeen and not stopSeen)
+                    if not na(p.entryLine)
+                        line.set_extend(p.entryLine, extend.none)
+                        line.set_extend(p.stopLine, extend.none)
+                        line.set_extend(p.targetLine, extend.none)
+                        line.set_x2(p.entryLine, bar_index)
+                        line.set_x2(p.stopLine, bar_index)
+                        line.set_x2(p.targetLine, bar_index)
+                        line.set_color(p.entryLine, color.gray)
+    // Newest eligible zone wins if multiple zones qualify on one candle.
+    if array.size(zones) > 0
+        for scan = 0 to array.size(zones) - 1
+            int idx = array.size(zones) - 1 - scan
+            Zone z = array.get(zones, idx)
+            if z.active
+                bool broken = z.direction == 1 ? (invalidation == "Close" ? close < z.bottom : low < z.bottom) : (invalidation == "Close" ? close > z.top : high > z.top)
+                bool expired = bar_index - z.born > zoneLife
+                if broken or expired
+                    z.active := false
+                    z.status := broken ? "Invalidated" : "Expired"
+                    zoneInvalidated := zoneInvalidated or broken
+                else
+                    // Zone must already exist; closed creation bar is never its retest.
+                    bool overlap = bar_index > z.born and high >= z.bottom and low <= z.top
+                    bool newVisit = overlap and not z.inside
+                    if newVisit
+                        z.touches += 1
+                        z.touchBar := bar_index
+                        z.touchHigh := high
+                        z.touchLow := low
+                        if repeatVisit and not firstOnly
+                            z.sentA := false
+                            z.sentB := false
+                    z.inside := overlap
+                    z.status := z.touches == 0 ? "Fresh" : "Retested " + str.tostring(z.touches)
+                    bool visitOk = z.touches > 0 and (not firstOnly or z.touches == 1)
+                    bool localOk = not requireLocal or (localDirection == z.direction and not localRange)
+                    bool htfOk = not requireHtf or (not na(htfKnownAt) and htfBias == z.direction)
+                    float nearEdge = z.direction == 1 ? z.top : z.bottom
+                    bool distanceOk = not distanceFilter or math.abs(close - nearEdge) <= maxDistanceAtr * priorAtr
+                    bool directional = z.direction == 1 ? close > open : close < open
+                    bool reclaim = directional and (z.direction == 1 ? close > z.top : close < z.bottom)
+                    bool retestBreak = reclaim and (z.direction == 1 ? close > z.touchHigh : close < z.touchLow)
+                    bool candleOk = confirmRule == "Directional close" ? directional : confirmRule == "Reclaim near edge" ? reclaim : retestBreak
+                    bool afterTouch = not na(z.touchBar) and bar_index > z.touchBar and bar_index - z.touchBar <= confirmBars
+                    bool aCandidate = enableAggressive and newVisit and not z.sentA
+                    bool bCandidate = enableConfirmed and afterTouch and candleOk and not z.sentB
+                    // A is a close-observed touch hypothesis, NOT a historical limit fill.
+                    if signalDir == 0 and ready and visitOk and localOk and htfOk and commonOk and distanceOk and (aCandidate or bCandidate)
+                        float entry = close
+                        float buffer = math.max(priorAtr * stopAtr, syminfo.mintick * stopTicks)
+                        float stop = z.direction == 1 ? math.floor((z.bottom - buffer) / syminfo.mintick) * syminfo.mintick : math.ceil((z.top + buffer) / syminfo.mintick) * syminfo.mintick
+                        float risk = z.direction == 1 ? entry - stop : stop - entry
+                        float target = entry + z.direction * risk * targetR
+                        bool targetFound = targetMode == "Fixed R"
+                        if targetMode == "Nearest opposing zone"
+                            float nearest = na
+                            for other in zones
+                                bool otherBroken = other.direction == 1 ? (invalidation == "Close" ? close < other.bottom : low < other.bottom) : (invalidation == "Close" ? close > other.top : high > other.top)
+                                bool otherExpired = bar_index - other.born > zoneLife
+                                if other.active and not otherBroken and not otherExpired and other.direction == -z.direction
+                                    float edge = z.direction == 1 ? other.bottom : other.top
+                                    if (edge - entry) * z.direction > 0
+                                        if na(nearest) or math.abs(edge - entry) < math.abs(nearest - entry)
+                                            nearest := edge
+                            target := nearest
+                            targetFound := not na(nearest)
+                        target := z.direction == 1 ? math.floor(target / syminfo.mintick) * syminfo.mintick : math.ceil(target / syminfo.mintick) * syminfo.mintick
+                        float reward = (target - entry) * z.direction
+                        float plannedR = risk > 0 ? reward / risk : na
+                        bool stopNotCrossed = z.direction == 1 ? low > stop : high < stop
+                        if targetFound and risk >= syminfo.mintick and reward > 0 and not na(plannedR) and plannedR >= minimumR and stopNotCrossed
+                            bool profilePocAligned = not na(profilePoc) and (z.direction == 1 ? close > profilePoc : close < profilePoc)
+                            bool profileValueAligned = not na(profileVah) and not na(profileVal) and (z.direction == 1 ? close > profileVah : close < profileVal)
+                            bool emaAligned = z.direction == 1 ? close > chartEma20 and chartEma20 > chartEma50 : close < chartEma20 and chartEma20 < chartEma50
+                            bool volumeConfirmed = not na(relVolume) and relVolume >= minRelVolume
+                            int setupScore = (htfBias == z.direction ? 1 : 0) + (localDirection == z.direction ? 1 : 0) + (bCandidate ? 1 : 0) + (profilePocAligned ? 1 : 0) + (profileValueAligned ? 1 : 0) + (emaAligned ? 1 : 0) + (volumeConfirmed ? 1 : 0)
+                            signalDir := z.direction
+                            signalModel := bCandidate ? "B confirmation" : "A touch at close"
+                            signalEntry := entry
+                            signalStop := stop
+                            signalTarget := target
+                            signalR := plannedR
+                            signalScore := setupScore
+                            lastSignalScore := setupScore
+                            signalBestBuy := z.direction == 1 and setupScore >= minConfluenceScore
+                            signalBestSell := z.direction == -1 and setupScore >= minConfluenceScore
+                            if bCandidate
+                                z.sentB := true
+                                buyB := z.direction == 1
+                                sellB := z.direction == -1
+                            else
+                                z.sentA := true
+                                buyA := z.direction == 1
+                                sellA := z.direction == -1
+                            signalReason := signalModel + " | " + z.eventName + " zone " + str.format_time(z.bornTime, "yyyy-MM-dd HH:mm", "UTC") + " UTC\nHTF " + f_bias(htfBias) + " | " + z.status + "\nConfluence " + str.tostring(setupScore) + "/7 | prior profile POC " + f_price(profilePoc) + "\n" + (bCandidate ? confirmRule : "New overlap episode observed at close")
+                if not na(z.drawing)
+                    color shade = not z.active ? color.gray : z.direction == 1 ? color.teal : color.maroon
+                    int alpha = not z.active ? 94 : z.touches == 0 ? 83 : 91
+                    box.set_right(z.drawing, bar_index + 1)
+                    box.set_bgcolor(z.drawing, color.new(shade, alpha))
+                    box.set_border_color(z.drawing, color.new(shade, z.active ? 25 : 80))
+                    box.set_text(z.drawing, (z.direction == 1 ? "BUY AREA - demand (not entry)\n" : "SELL AREA - supply (not entry)\n") + z.status)
+                lastZoneStatus := z.status
+    // R02: Candidate zone created only after a directional structure break.
+    bool displacementOk = not requireDeparture or math.abs(close - open) >= departureAtr * priorAtr
+    bool sameDirection = structureEvent > 0 ? close > open : close < open
+    if ready and structureEvent != 0 and displacementOk and sameDirection
+        int direction = structureEvent > 0 ? 1 : -1
+        int found = na
+        for offset = 1 to searchBars
+            bool opposing = direction == 1 ? close[offset] < open[offset] : close[offset] > open[offset]
+            if na(found) and opposing
+                found := offset
+        if not na(found)
+            float top = boundaryRule == "Full candle" ? high[found] : math.max(open[found], close[found])
+            float bottom = boundaryRule == "Full candle" ? low[found] : math.min(open[found], close[found])
+            bool departed = direction == 1 ? close > top : close < bottom
+            if top > bottom and departed
+                Zone z = Zone.new(top, bottom, direction, bar_index, time_close, f_event(structureEvent))
+                if showZones
+                    color shade = direction == 1 ? color.teal : color.maroon
+                    // Left edge is knowledge time, NOT the opposing candle in the past.
+                    z.drawing := box.new(left = bar_index, top = top, right = bar_index + 1, bottom = bottom, bgcolor = color.new(shade, 83), border_color = shade, text = (direction == 1 ? "BUY AREA - demand (not entry)\nFresh" : "SELL AREA - supply (not entry)\nFresh"), text_color = shade, text_size = size.tiny)
+                array.push(zones, z)
+                if array.size(zones) > maxZones
+                    Zone old = array.shift(zones)
+                    if not na(old.drawing)
+                        if keepHistoricalZones
+                            // Drawing archive only: removed zones never re-enter signal logic.
+                            box.set_right(old.drawing, math.min(box.get_right(old.drawing), bar_index))
+                            box.set_bgcolor(old.drawing, color.new(color.gray, 94))
+                            box.set_border_color(old.drawing, color.new(color.gray, 70))
+                            box.set_text(old.drawing, "Archived " + (old.direction == 1 ? "BUY area / demand " : "SELL area / supply ") + old.status + " (not monitored)")
+                            array.push(archivedZoneBoxes, old.drawing)
+                            if array.size(archivedZoneBoxes) > historicalZoneLimit
+                                box.delete(array.shift(archivedZoneBoxes))
+                        else
+                            box.delete(old.drawing)
+                zoneCreated := true
+                lastZoneStatus := "Fresh"
+    if showStructure and structureEvent != 0
+        f_note(bar_index, structureEvent > 0 ? low : high, f_event(structureEvent), structureEvent > 0 ? color.teal : color.maroon, structureEvent > 0)
+    if signalDir != 0
+        historicalBuys += signalDir == 1 ? 1 : 0
+        historicalSells += signalDir == -1 ? 1 : 0
+        lastSignal := (signalDir == 1 ? "BUY " : "SELL ") + signalModel + " | planned " + str.tostring(signalR, "#.##") + "R"
+        Plan p = Plan.new(signalEntry, signalStop, signalTarget, signalDir, bar_index)
+        if showLevels
+            p.entryLine := line.new(bar_index, signalEntry, bar_index + 1, signalEntry, extend = extend.right, color = color.blue)
+            p.stopLine := line.new(bar_index, signalStop, bar_index + 1, signalStop, extend = extend.right, color = color.red)
+            p.targetLine := line.new(bar_index, signalTarget, bar_index + 1, signalTarget, extend = extend.right, color = color.green)
+        array.push(plans, p)
+        if array.size(plans) > maxPlans
+            Plan old = array.shift(plans)
+            if not na(old.entryLine)
+                line.delete(old.entryLine)
+                line.delete(old.stopLine)
+                line.delete(old.targetLine)
+        if showReasons
+            string setupText = "HYPOTHETICAL " + lastSignal + "\nE " + f_price(signalEntry) + " | SL " + f_price(signalStop) + " | TP " + f_price(signalTarget) + "\n" + signalReason
+            f_note(bar_index, signalDir == 1 ? low : high, setupText, signalDir == 1 ? color.teal : color.maroon, signalDir == 1)
+        if dynamicAlerts
+            alert(syminfo.tickerid + " HYPOTHETICAL " + lastSignal + " E=" + f_price(signalEntry) + " SL=" + f_price(signalStop) + " TP=" + f_price(signalTarget) + " | " + signalReason, alert.freq_once_per_bar_close)
+
+bool closedEntryBar = barstate.isconfirmed and timeframesOk
+var int historicalHighConfluence = 0
+if barstate.isconfirmed and (signalBestBuy or signalBestSell)
+    historicalHighConfluence += 1
+plot(showSwings and closedEntryBar and not na(confirmedHi) ? confirmedHi : na, "Swing high known now", color.orange, 3, plot.style_circles)
+plot(showSwings and closedEntryBar and not na(confirmedLo) ? confirmedLo : na, "Swing low known now", color.aqua, 3, plot.style_circles)
+plot(showDaily and timeframesOk ? pdh : na, "Previous completed feed day high", color.new(color.orange, 50), style = plot.style_stepline)
+plot(showDaily and timeframesOk ? pdl : na, "Previous completed feed day low", color.new(color.aqua, 50), style = plot.style_stepline)
+plot(showProfile ? profilePoc : na, "Prior-bars volume profile POC proxy", color=color.yellow, linewidth=2, style=plot.style_stepline)
+plot(showProfile ? profileVah : na, "Prior-bars volume profile VAH proxy", color=color.new(color.orange, 25), style=plot.style_stepline)
+plot(showProfile ? profileVal : na, "Prior-bars volume profile VAL proxy", color=color.new(color.orange, 25), style=plot.style_stepline)
+plotshape(showEntries and buyA and not signalBestBuy, title = "BUY A", style = shape.labelup, location = location.belowbar, color = color.green, text = "BUY\nTOUCH", textcolor = color.white, size = size.normal)
+plotshape(showEntries and sellA and not signalBestSell, title = "SELL A", style = shape.labeldown, location = location.abovebar, color = color.red, text = "SELL\nTOUCH", textcolor = color.white, size = size.normal)
+plotshape(showEntries and buyB and not signalBestBuy, title = "BUY B", style = shape.labelup, location = location.belowbar, color = color.green, text = "BUY\nCONFIRMED", textcolor = color.white, size = size.normal)
+plotshape(showEntries and sellB and not signalBestSell, title = "SELL B", style = shape.labeldown, location = location.abovebar, color = color.red, text = "SELL\nCONFIRMED", textcolor = color.white, size = size.normal)
+plotshape(showEntries and signalBestBuy, title = "High-confluence BUY", style = shape.labelup, location = location.belowbar, color = color.new(color.green, 0), text = "HIGH\nCONFLUENCE BUY", textcolor = color.white, size = size.large)
+plotshape(showEntries and signalBestSell, title = "High-confluence SELL", style = shape.labeldown, location = location.abovebar, color = color.new(color.maroon, 0), text = "HIGH\nCONFLUENCE SELL", textcolor = color.white, size = size.large)
+color sessionShade = inLondon and inNy ? color.new(color.purple, 92) : inAsia ? color.new(color.blue, 94) : inLondon ? color.new(color.green, 94) : inNy ? color.new(color.orange, 94) : na
+bgcolor(showSessions ? sessionShade : na)
+// Plot series survive drawing-object pruning across the loaded chart history.
+plot(showHistoricalLevels ? signalEntry : na, "Historical signal entry", color.blue, 3, plot.style_circles)
+plot(showHistoricalLevels ? signalStop : na, "Historical signal stop", color.red, 3, plot.style_circles)
+plot(showHistoricalLevels ? signalTarget : na, "Historical signal target", color.green, 3, plot.style_circles)
+plot(signalEntry, "Signal reference entry", display = display.data_window)
+plot(signalStop, "Signal stop", display = display.data_window)
+plot(signalTarget, "Signal target", display = display.data_window)
+plot(signalR, "Signal planned R", display = display.data_window)
+plot(buyA ? 1 : sellA ? -1 : buyB ? 2 : sellB ? -2 : 0, "Signal model code", display = display.data_window)
+
+// Tally actual retained state even while the current candle is unfinished.
+if array.size(zones) > 0
+    for z in zones
+        if z.active
+            activeZones += 1
+    Zone newest = array.get(zones, array.size(zones) - 1)
+    lastZoneStatus := newest.status
+int displayedLocalDirection = barstate.isconfirmed ? localDirection : localDirection[1]
+bool displayedLocalRange = barstate.isconfirmed ? localRange : localRange[1]
+
+int activePlans = 0
+string latestPlanState = "No level set"
+if array.size(plans) > 0
+    for p in plans
+        if p.active
+            activePlans += 1
+    Plan latestPlan = array.get(plans, array.size(plans) - 1)
+    latestPlanState := latestPlan.outcome
+
+// Drawing visibility does not change signal eligibility.
+if barstate.islast and array.size(zones) > 0
+    int demands = 0
+    int supplies = 0
+    for scan = 0 to array.size(zones) - 1
+        Zone z = array.get(zones, array.size(zones) - 1 - scan)
+        bool visible = showZones and z.active and (z.direction == 1 ? demands < visibleZonesPerSide : supplies < visibleZonesPerSide)
+        if visible
+            demands += z.direction == 1 ? 1 : 0
+            supplies += z.direction == -1 ? 1 : 0
+        if not na(z.drawing)
+            color shade = z.direction == 1 ? color.teal : color.maroon
+            box.set_bgcolor(z.drawing, color.new(shade, visible ? 88 : 100))
+            box.set_border_color(z.drawing, color.new(shade, visible ? 25 : 100))
+            string stage = z.sentB ? "Confirmed" : z.touches == 0 ? "Wait for retest" : bar_index - z.touchBar <= confirmBars ? "Wait for confirmation" : "Window ended"
+            box.set_text(z.drawing, visible ? (z.direction == 1 ? "DEMAND" : "SUPPLY") + " | " + stage : "")
+            box.set_text_size(z.drawing, size.small)
+            box.set_text_halign(z.drawing, text.align_right)
+
+var table status = table.new(position.top_right, 2, 16, bgcolor = color.new(color.black, 15), border_width = 1)
+if barstate.islast and showTable and detailedTable
+    string support = timeframesOk ? "Ready (closed bars only)" : "Set chart to entry TF; standard candles"
+    table.cell(status, 0, 0, "Candidate zones / research", text_color = color.white)
+    table.cell(status, 1, 0, support, text_color = timeframesOk ? color.lime : color.orange)
+    table.cell(status, 0, 1, "Chart / entry / HTF", text_color = color.white)
+    table.cell(status, 1, 1, timeframe.period + " / " + entryTf + " / " + contextTf, text_color = color.white)
+    table.cell(status, 0, 2, "Completed HTF bias", text_color = color.white)
+    table.cell(status, 1, 2, f_bias(htfBias), text_color = htfBias == 1 ? color.lime : htfBias == -1 ? color.red : color.orange)
+    table.cell(status, 0, 3, "Chart structure (closed)", text_color = color.white)
+    table.cell(status, 1, 3, f_bias(displayedLocalRange ? 0 : displayedLocalDirection), text_color = color.white)
+    table.cell(status, 0, 4, "Last hypothetical setup", text_color = color.white)
+    table.cell(status, 1, 4, lastSignal + "\n" + latestPlanState + " | active sets " + str.tostring(activePlans), text_color = color.white)
+    table.cell(status, 0, 5, "Active / retained zones", text_color = color.white)
+    table.cell(status, 1, 5, str.tostring(activeZones) + " / " + str.tostring(array.size(zones)), text_color = color.white)
+    table.cell(status, 0, 6, "Session / ATR / volume", text_color = color.white)
+    table.cell(status, 1, 6, (sessionOk ? "OK" : "Blocked") + " / " + (volOk ? "OK" : "Blocked") + " / " + (volumeOk ? "OK" : "Blocked / missing"), text_color = color.white)
+    table.cell(status, 0, 7, "Current chart relative volume", text_color = color.white)
+    table.cell(status, 1, 7, na(relVolume) ? "Unavailable" : str.tostring(relVolume, "#.##") + " (feed proxy)", text_color = color.white)
+    table.cell(status, 0, 8, "Models / zone status", text_color = color.white)
+    table.cell(status, 1, 8, (enableAggressive ? "A " : "") + (enableConfirmed ? "B " : "") + "| " + lastZoneStatus, text_color = color.white)
+    table.cell(status, 0, 9, "Data / execution", text_color = color.white)
+    table.cell(status, 1, 9, "Chart OHLCV; NO COT/spread/orders", text_color = color.orange)
+    table.cell(status, 0, 11, "ENTRY MARKERS", text_color = color.white)
+    table.cell(status, 1, 11, "GREEN BUY below / RED SELL above", text_color = color.white)
+    table.cell(status, 0, 12, "PRICE LEVELS", text_color = color.white)
+    table.cell(status, 1, 12, "Blue = entry | Red = SL | Green = TP", text_color = color.white)
+    table.cell(status, 0, 10, "Signals in loaded history", text_color = color.white)
+    table.cell(status, 1, 10, "BUY " + str.tostring(historicalBuys) + " | SELL " + str.tostring(historicalSells) + " | archived zones " + str.tostring(array.size(archivedZoneBoxes)), text_color = color.white)
+    table.cell(status, 0, 13, "Volume profile (proxy)", text_color = color.white)
+    table.cell(status, 1, 13, "POC " + f_price(profilePoc) + " | VAH " + f_price(profileVah) + " | VAL " + f_price(profileVal), text_color = color.white)
+    table.cell(status, 0, 14, "High-confluence marks", text_color = color.white)
+    table.cell(status, 1, 14, str.tostring(historicalHighConfluence) + " | threshold " + str.tostring(minConfluenceScore) + "/7 (not probability)", text_color = color.white)
+    table.cell(status, 0, 15, "Last setup confluence", text_color = color.white)
+    table.cell(status, 1, 15, na(lastSignalScore) ? "No setup yet" : str.tostring(lastSignalScore) + "/7 (not probability)", text_color = color.white)
+
+var table compact = table.new(position.bottom_right, 1, 4, bgcolor = color.new(color.black, 15))
+if barstate.islast and showTable and not detailedTable
+    table.cell(compact, 0, 0, timeframesOk ? "HTF: " + f_bias(htfBias) : "Check chart / entry timeframe", text_color = color.white)
+    table.cell(compact, 0, 1, lastSignal, text_color = color.white)
+    string prices = "Waiting for entry"
+    if array.size(plans) > 0
+        Plan latest = array.get(plans, array.size(plans) - 1)
+        prices := "E " + f_price(latest.entry) + " | SL " + f_price(latest.stop) + " | TP " + f_price(latest.target)
+    table.cell(compact, 0, 2, prices, text_color = color.white)
+    table.cell(compact, 0, 3, na(lastSignalScore) ? "Confluence: no setup yet" : "Last setup confluence " + str.tostring(lastSignalScore) + "/7; not probability", text_color = color.white)
+
+alertcondition(buyB and barstate.isconfirmed, "Confirmed BUY", "Hypothetical confirmed BUY on {{ticker}} {{interval}}. Review indicator levels; no trade executed.")
+alertcondition(sellB and barstate.isconfirmed, "Confirmed SELL", "Hypothetical confirmed SELL on {{ticker}} {{interval}}. Review indicator levels; no trade executed.")
+alertcondition((buyA or buyB or sellA or sellB) and barstate.isconfirmed, "Any BUY/SELL setup", "Closed-bar hypothetical setup on {{ticker}} {{interval}}. Review confluence and planned levels; no trade executed.")
+alertcondition(signalBestBuy and barstate.isconfirmed, "High-confluence BUY", "High-confluence checklist BUY on {{ticker}} {{interval}}. Score is not a probability or validated edge.")
+alertcondition(signalBestSell and barstate.isconfirmed, "High-confluence SELL", "High-confluence checklist SELL on {{ticker}} {{interval}}. Score is not a probability or validated edge.")
+alertcondition(buyA and barstate.isconfirmed, "Touch BUY at close", "Hypothetical zone-touch BUY observed at close on {{ticker}}. Not an intrabar fill.")
+alertcondition(sellA and barstate.isconfirmed, "Touch SELL at close", "Hypothetical zone-touch SELL observed at close on {{ticker}}. Not an intrabar fill.")
+alertcondition(zoneCreated and barstate.isconfirmed, "Candidate zone created", "A price-action candidate zone became known on {{ticker}}.")
+alertcondition(zoneInvalidated and barstate.isconfirmed, "Candidate zone invalidated", "A candidate zone crossed its configured far-boundary invalidation on {{ticker}}.")
+alertcondition(setupInvalidated and barstate.isconfirmed, "Hypothetical setup stop observed", "A prior hypothetical setup stop was observed on {{ticker}}. No execution claim.")
+alertcondition(setupTargetObserved and barstate.isconfirmed, "Hypothetical setup target observed", "A prior hypothetical target was observed on {{ticker}}. No execution claim.")

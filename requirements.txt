@@ -1,0 +1,8 @@
+pandas>=2.3.3,<4
+numpy>=2.3.3,<3
+matplotlib>=3.10.7,<4
+pytest>=8.4.2,<10
+tzdata>=2025.2
+yfinance>=0.2.66,<2
+streamlit>=1.49,<2
+plotly>=6.3,<7

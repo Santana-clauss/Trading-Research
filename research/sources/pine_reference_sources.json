@@ -1,0 +1,103 @@
+{
+  "review_date": "2026-10-18",
+  "sources": [
+    {
+      "id": "P01",
+      "title": "Pine Script v6: Repainting",
+      "authors": [
+        "TradingView"
+      ],
+      "year": null,
+      "source": "Official Pine documentation",
+      "url": "https://www.tradingview.com/pine-script-docs/concepts/repainting/",
+      "market_dataset": "Pine historical/realtime bar execution",
+      "methodology": "Language/API reference",
+      "key_findings": "Offset HTF expressions within request.security and use lookahead_on to obtain completed HTF values consistently.",
+      "limitations": "Reference pattern is not a guarantee against all logic errors, feed revisions or dataset-start effects.",
+      "hypothesis": "Timing safety, not alpha.",
+      "classification": "official_documentation",
+      "access_reviewed": "Relevant HTF and confirmed-bar sections consulted."
+    },
+    {
+      "id": "P02",
+      "title": "Pine Script v6: Alerts",
+      "authors": [
+        "TradingView"
+      ],
+      "year": null,
+      "source": "Official Pine documentation",
+      "url": "https://www.tradingview.com/pine-script-docs/concepts/alerts/",
+      "market_dataset": "TradingView indicator alerts",
+      "methodology": "Language/API reference",
+      "key_findings": "Alert conditions and detailed alerts can use closed-bar conditions; server alerts snapshot script settings.",
+      "limitations": "Alerts are notifications, not fill evidence.",
+      "hypothesis": "Closed-bar notifications without intrabar speculation.",
+      "classification": "official_documentation",
+      "access_reviewed": "Public alert-condition/frequency documentation consulted."
+    },
+    {
+      "id": "P03",
+      "title": "LibraryCOT",
+      "authors": [
+        "TradingView"
+      ],
+      "year": null,
+      "source": "Official TradingView library page",
+      "url": "https://www.tradingview.com/script/ysFf2OTq-LibraryCOT/",
+      "market_dataset": "TradingView COT symbols and report categories",
+      "methodology": "Generate supported ticker IDs for request.security.",
+      "key_findings": "A supported COT data-access route exists; arbitrary Python CSV imports are not needed or implied.",
+      "limitations": "Symbol access, category mapping, actual release timing and revisions need verification before a causal historical filter.",
+      "hypothesis": "Future optional weekly context, not intraday institution detection.",
+      "classification": "official_documentation",
+      "access_reviewed": "Public library overview consulted; no imported version or historical release audit performed."
+    },
+    {
+      "id": "P04",
+      "title": "Pine Script v6: Other timeframes and data",
+      "authors": [
+        "TradingView"
+      ],
+      "year": null,
+      "source": "Official Pine documentation",
+      "url": "https://www.tradingview.com/pine-script-docs/concepts/other-timeframes-and-data/",
+      "market_dataset": "Supported Pine data requests",
+      "methodology": "Language/API reference",
+      "key_findings": "Supports security and selected specialized feeds, including footprint data where available; not arbitrary local Python dataset access.",
+      "limitations": "Capabilities depend on feed/account/context. OHLCV alone is not an event-level book and does not provide historical broker execution costs.",
+      "hypothesis": "Use chart/HTF OHLCV now; verify specialist feeds separately.",
+      "classification": "official_documentation",
+      "access_reviewed": "Request signatures and supported-source overview consulted."
+    },
+    {
+      "id": "P05",
+      "title": "Volume Profile indicators: basic concepts",
+      "authors": ["TradingView"],
+      "year": null,
+      "source": "Official TradingView Help Center",
+      "url": "https://www.tradingview.com/support/solutions/43000502040-volume-profile-indicators-basic-concepts/",
+      "market_dataset": "Platform volume profile calculations using lower-timeframe data where available",
+      "methodology": "Price-level volume histogram and point-of-control/value-area definitions.",
+      "key_findings": "Volume profile uses volume by price; forex/CFD products may use tick volume. Platform profiles use lower-timeframe bars rather than a uniform allocation through a single candle range.",
+      "limitations": "A candle-range allocation proxy cannot reproduce the platform profile or the within-bar traded-price distribution; chart-feed volume is not necessarily centralized trade volume.",
+      "hypothesis": "POC/value-area location is descriptive context only until a predeclared gold-specific test is completed.",
+      "classification": "official_documentation",
+      "access_reviewed": "Public Help Center methodology, inputs and POC/value-area descriptions consulted."
+    },
+    {
+      "id": "P06",
+      "title": "Pine Script v6: Sessions",
+      "authors": ["TradingView"],
+      "year": null,
+      "source": "Official Pine documentation",
+      "url": "https://www.tradingview.com/pine-script-docs/concepts/sessions/",
+      "market_dataset": "TradingView symbol and chart-session states",
+      "methodology": "Pine language/API reference for time-based and named sessions.",
+      "key_findings": "Pine exposes symbol session state and custom session checks; session.ismarket depends on the symbol's session definition.",
+      "limitations": "A session flag is not an exchange calendar, broker connection monitor, or direct liquidity measure.",
+      "hypothesis": "Use feed session state as an explicit signal gate; verify behavior on each selected gold feed.",
+      "classification": "official_documentation",
+      "access_reviewed": "Public session-state and time-based session documentation consulted."
+    }
+  ]
+}

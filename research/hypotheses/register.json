@@ -1,0 +1,191 @@
+{
+  "version": 1,
+  "status": "definitions_not_results",
+  "activation_policy": "Only H01 and H07 first. Later hypotheses require an explicitly frozen plan before evaluation. No backtests in this milestone.",
+  "hypotheses": [
+    {
+      "status": "defined_not_tested",
+      "stage": "exploratory_until_plan_frozen",
+      "required_data": "Completed M15 candles and completed H1 context; broker costs for CFD claims. Yahoo futures and broker data evaluated separately.",
+      "minimum_sample": "Pilot floor: 200 non-overlapping OOS trades total and 50 per compared group, across >=12 months; not a statistical guarantee. Estimate effective sample size and 80% power for a predeclared 0.10R difference using development-period block resampling; otherwise report inconclusive.",
+      "validation": "Chronological 60/20/20 development/validation/final holdout. Expanding 12-month train / 3-month forward folds when history permits; purge overlapping outcomes and embargo 1 trading day around splits. Final holdout opened once after frozen plan; never tune on it.",
+      "statistical_test": "Primary endpoint mean net R difference versus baseline, paired by signal opportunity where possible; resample calendar-week blocks (2000 replicates). Two-sided 95% interval; Holm familywise alpha 0.05 across activated comparisons. Log exclusions and effective sample size. Win rate is secondary.",
+      "parameter_logging": "Freeze JSON definitions, data hashes, code identifier, all parameter values, costs and split dates before execution; append every attempted run to parameter_registry.jsonl including failures. No strategy runs executed in this milestone.",
+      "rejection_rule": "Do not advance if validation effect is negative or uncertainty is too large. Confirmation requires positive final-test net expectancy and adjusted evidence of baseline improvement; otherwise reject/inconclusive, never retune final test.",
+      "id": "H01",
+      "title": "Compare touch, candle confirmation and H1 context",
+      "priority": 1,
+      "source_ids": [
+        "S06",
+        "S08"
+      ],
+      "signal": "Pivots left=3/right=3 available only after right confirmation. BOS is first completed close past latest unbroken pivot. Require BOS candle abs(close-open)/ATR14(previous completed bar)>=1. Zone is full range of last opposite candle among 10 pre-BOS bars; known at BOS close. Invalidate on completed close beyond far edge; expires 96 M15 bars; first touch only. A: resting order at near edge from next bar; B: touch followed by first directional candle close within next 3 bars, next-open entry; C: B plus last completed H1 structure direction matches and H1 close above/below EMA50. One entry per zone. Stop far edge +/-0.1 prior ATR14; target 1.5R; stop-first ambiguous bars; close after 32 M15 bars if unexited.",
+      "baseline": "A touch with identical zones, stops, costs and periods; evaluate B-A and C-B as two comparisons.",
+      "parameters": {
+        "pivot": [
+          3,
+          3
+        ],
+        "atr": 14,
+        "departure_atr": 1,
+        "zone_lookback": 10,
+        "zone_age": 96,
+        "confirmation_window": 3,
+        "h1_ema": 50,
+        "target_r": 1.5,
+        "stop_atr": 0.1,
+        "max_hold_bars": 32
+      },
+      "notes": "No implementation here. 1R and 2R are deferred hypotheses, not hidden additional trials. Max one open position for comparable opportunity accounting."
+    },
+    {
+      "status": "defined_not_tested",
+      "stage": "exploratory_until_plan_frozen",
+      "required_data": "Completed M15 candles and completed H1 context; broker costs for CFD claims. Yahoo futures and broker data evaluated separately.",
+      "minimum_sample": "Pilot floor: 200 non-overlapping OOS trades total and 50 per compared group, across >=12 months; not a statistical guarantee. Estimate effective sample size and 80% power for a predeclared 0.10R difference using development-period block resampling; otherwise report inconclusive.",
+      "validation": "Chronological 60/20/20 development/validation/final holdout. Expanding 12-month train / 3-month forward folds when history permits; purge overlapping outcomes and embargo 1 trading day around splits. Final holdout opened once after frozen plan; never tune on it.",
+      "statistical_test": "Primary endpoint mean net R difference versus baseline, paired by signal opportunity where possible; resample calendar-week blocks (2000 replicates). Two-sided 95% interval; Holm familywise alpha 0.05 across activated comparisons. Log exclusions and effective sample size. Win rate is secondary.",
+      "parameter_logging": "Freeze JSON definitions, data hashes, code identifier, all parameter values, costs and split dates before execution; append every attempted run to parameter_registry.jsonl including failures. No strategy runs executed in this milestone.",
+      "rejection_rule": "Do not advance if validation effect is negative or uncertainty is too large. Confirmation requires positive final-test net expectancy and adjusted evidence of baseline improvement; otherwise reject/inconclusive, never retune final test.",
+      "id": "H02",
+      "title": "Session differences at first retest",
+      "priority": 2,
+      "source_ids": [
+        "S01"
+      ],
+      "signal": "Apply frozen B from H01. Classify fill by Asia/Tokyo 09-18, Europe/London 08-17, America/New_York 08-17 local time. Overlap is separate, not duplicated in independent groups. Compare sessions on net R with identical execution and weekday controls.",
+      "baseline": "All-session B; report London-only and New-York-only differences, overlaps separately.",
+      "parameters": {
+        "session_windows": "config.sessions",
+        "entry_model": "B"
+      },
+      "notes": "Session boundaries fixed before testing; no test-set session optimization."
+    },
+    {
+      "status": "defined_not_tested",
+      "stage": "exploratory_until_plan_frozen",
+      "required_data": "Completed M15 candles and completed H1 context; broker costs for CFD claims. Yahoo futures and broker data evaluated separately.",
+      "minimum_sample": "Pilot floor: 200 non-overlapping OOS trades total and 50 per compared group, across >=12 months; not a statistical guarantee. Estimate effective sample size and 80% power for a predeclared 0.10R difference using development-period block resampling; otherwise report inconclusive.",
+      "validation": "Chronological 60/20/20 development/validation/final holdout. Expanding 12-month train / 3-month forward folds when history permits; purge overlapping outcomes and embargo 1 trading day around splits. Final holdout opened once after frozen plan; never tune on it.",
+      "statistical_test": "Primary endpoint mean net R difference versus baseline, paired by signal opportunity where possible; resample calendar-week blocks (2000 replicates). Two-sided 95% interval; Holm familywise alpha 0.05 across activated comparisons. Log exclusions and effective sample size. Win rate is secondary.",
+      "parameter_logging": "Freeze JSON definitions, data hashes, code identifier, all parameter values, costs and split dates before execution; append every attempted run to parameter_registry.jsonl including failures. No strategy runs executed in this milestone.",
+      "rejection_rule": "Do not advance if validation effect is negative or uncertainty is too large. Confirmation requires positive final-test net expectancy and adjusted evidence of baseline improvement; otherwise reject/inconclusive, never retune final test.",
+      "id": "H03",
+      "title": "Strong versus modest departure from zone",
+      "priority": 3,
+      "source_ids": [],
+      "signal": "Apply B; compare BOS abs(close-open)/prior ATR14 >=1.5 versus [1,1.5); all other zone and exit definitions fixed.",
+      "baseline": "B with threshold >=1 from H01.",
+      "parameters": {
+        "displacement_thresholds": [
+          1,
+          1.5
+        ]
+      },
+      "notes": "Price-pattern hypothesis without direct order-block evidence. Confirmed BOS and momentum are not institution identifiers."
+    },
+    {
+      "status": "defined_not_tested",
+      "stage": "exploratory_until_plan_frozen",
+      "required_data": "Completed M15 candles and completed H1 context; broker costs for CFD claims. Yahoo futures and broker data evaluated separately.",
+      "minimum_sample": "Pilot floor: 200 non-overlapping OOS trades total and 50 per compared group, across >=12 months; not a statistical guarantee. Estimate effective sample size and 80% power for a predeclared 0.10R difference using development-period block resampling; otherwise report inconclusive.",
+      "validation": "Chronological 60/20/20 development/validation/final holdout. Expanding 12-month train / 3-month forward folds when history permits; purge overlapping outcomes and embargo 1 trading day around splits. Final holdout opened once after frozen plan; never tune on it.",
+      "statistical_test": "Primary endpoint mean net R difference versus baseline, paired by signal opportunity where possible; resample calendar-week blocks (2000 replicates). Two-sided 95% interval; Holm familywise alpha 0.05 across activated comparisons. Log exclusions and effective sample size. Win rate is secondary.",
+      "parameter_logging": "Freeze JSON definitions, data hashes, code identifier, all parameter values, costs and split dates before execution; append every attempted run to parameter_registry.jsonl including failures. No strategy runs executed in this milestone.",
+      "rejection_rule": "Do not advance if validation effect is negative or uncertainty is too large. Confirmation requires positive final-test net expectancy and adjusted evidence of baseline improvement; otherwise reject/inconclusive, never retune final test.",
+      "id": "H04",
+      "title": "Relative futures volume and volatility context",
+      "priority": 4,
+      "source_ids": [
+        "S02"
+      ],
+      "signal": "Exploratory only: B with current completed confirmation-bar volume / mean(previous 20 same-source bars)>=1.5; separately describe prior ATR14/close terciles from development data. Do not label either feature OFI, aggressor direction or market depth.",
+      "baseline": "B without volume filter.",
+      "parameters": {
+        "volume_lookback": 20,
+        "relative_volume_threshold": 1.5,
+        "volatility_cutpoints": "development_only"
+      },
+      "notes": "Use actual provider futures volume separately from broker tick counts. Gold trade-aggressor/depth hypothesis blocked until timestamped quotes/trades are obtained."
+    },
+    {
+      "status": "defined_not_tested",
+      "stage": "exploratory_until_plan_frozen",
+      "required_data": "Daily futures plus COT reports and actual release evidence, preferably historical vintages; no intraday candle attribution.",
+      "minimum_sample": "At least 10 years, 104 prior weekly reports for warmup, and pilot 30 independent events per tail; power/dependence analysis still required.",
+      "validation": "Chronological 60/20/20 development/validation/final holdout. Expanding 12-month train / 3-month forward folds when history permits; purge overlapping outcomes and embargo 1 trading day around splits. Final holdout opened once after frozen plan; never tune on it.",
+      "statistical_test": "Primary endpoint mean net R difference versus baseline, paired by signal opportunity where possible; resample calendar-week blocks (2000 replicates). Two-sided 95% interval; Holm familywise alpha 0.05 across activated comparisons. Log exclusions and effective sample size. Win rate is secondary.",
+      "parameter_logging": "Freeze JSON definitions, data hashes, code identifier, all parameter values, costs and split dates before execution; append every attempted run to parameter_registry.jsonl including failures. No strategy runs executed in this milestone.",
+      "rejection_rule": "Do not advance if validation effect is negative or uncertainty is too large. Confirmation requires positive final-test net expectancy and adjusted evidence of baseline improvement; otherwise reject/inconclusive, never retune final test.",
+      "id": "H05",
+      "title": "Weekly managed-money positioning extremes",
+      "priority": 5,
+      "source_ids": [
+        "S03",
+        "S04"
+      ],
+      "signal": "At first completed daily bar after verified COT availability, label current managed-money net below prior-156-report 10th percentile or above 90th percentile, with >=104 prior reports; evaluate signed next-5-trading-day return in contrarian direction. Overlapping weekly horizons purged. Use one fixed horizon; archives with retrieval-only timing cannot support historical release tests.",
+      "baseline": "Unconditional next-5-day return matched by weekday and sample; trend-following interpretation is a separate future trial.",
+      "parameters": {
+        "window_reports": 156,
+        "min_history": 104,
+        "lower": 0.1,
+        "upper": 0.9,
+        "horizon_days": 5
+      },
+      "notes": "Require >=10 years of daily gold futures, verified publication/vintage audit and sufficient extreme events; 30 per tail is only a pilot floor, not significance. Raw net can drift with open interest; normalization is a separate registered future hypothesis."
+    },
+    {
+      "status": "defined_not_tested",
+      "stage": "exploratory_until_plan_frozen",
+      "required_data": "Completed M15 candles and completed H1 context; broker costs for CFD claims. Yahoo futures and broker data evaluated separately.",
+      "minimum_sample": "Pilot floor: 200 non-overlapping OOS trades total and 50 per compared group, across >=12 months; not a statistical guarantee. Estimate effective sample size and 80% power for a predeclared 0.10R difference using development-period block resampling; otherwise report inconclusive.",
+      "validation": "Chronological 60/20/20 development/validation/final holdout. Expanding 12-month train / 3-month forward folds when history permits; purge overlapping outcomes and embargo 1 trading day around splits. Final holdout opened once after frozen plan; never tune on it.",
+      "statistical_test": "Primary endpoint mean net R difference versus baseline, paired by signal opportunity where possible; resample calendar-week blocks (2000 replicates). Two-sided 95% interval; Holm familywise alpha 0.05 across activated comparisons. Log exclusions and effective sample size. Win rate is secondary.",
+      "parameter_logging": "Freeze JSON definitions, data hashes, code identifier, all parameter values, costs and split dates before execution; append every attempted run to parameter_registry.jsonl including failures. No strategy runs executed in this milestone.",
+      "rejection_rule": "Do not advance if validation effect is negative or uncertainty is too large. Confirmation requires positive final-test net expectancy and adjusted evidence of baseline improvement; otherwise reject/inconclusive, never retune final test.",
+      "id": "H06",
+      "title": "Zone rule against a simple momentum baseline",
+      "priority": 6,
+      "source_ids": [
+        "S06"
+      ],
+      "signal": "Compare frozen B against next-open entry after a directional M15 candle with abs(close-open)/prior ATR14>=1, no zone requirement. Match direction, session and volatility strata using development-only weights; baseline stop distance 1 prior ATR14, target 1.5R, max hold32.",
+      "baseline": "Displacement-only momentum rule.",
+      "parameters": {
+        "atr": 14,
+        "baseline_stop_atr": 1,
+        "target_r": 1.5,
+        "max_hold_bars": 32
+      },
+      "notes": "Zone benefit cannot be inferred from trades alone without an opportunity benchmark. No credible direct evidence for hidden orders in these candle patterns was established in this review."
+    },
+    {
+      "status": "defined_not_tested",
+      "stage": "exploratory_until_plan_frozen",
+      "required_data": "Completed M15 candles and completed H1 context; broker costs for CFD claims. Yahoo futures and broker data evaluated separately.",
+      "minimum_sample": "Pilot floor: 200 non-overlapping OOS trades total and 50 per compared group, across >=12 months; not a statistical guarantee. Estimate effective sample size and 80% power for a predeclared 0.10R difference using development-period block resampling; otherwise report inconclusive.",
+      "validation": "Chronological 60/20/20 development/validation/final holdout. Expanding 12-month train / 3-month forward folds when history permits; purge overlapping outcomes and embargo 1 trading day around splits. Final holdout opened once after frozen plan; never tune on it.",
+      "statistical_test": "Primary endpoint mean net R difference versus baseline, paired by signal opportunity where possible; resample calendar-week blocks (2000 replicates). Two-sided 95% interval; Holm familywise alpha 0.05 across activated comparisons. Log exclusions and effective sample size. Win rate is secondary.",
+      "parameter_logging": "Freeze JSON definitions, data hashes, code identifier, all parameter values, costs and split dates before execution; append every attempted run to parameter_registry.jsonl including failures. No strategy runs executed in this milestone.",
+      "rejection_rule": "Do not advance if validation effect is negative or uncertainty is too large. Confirmation requires positive final-test net expectancy and adjusted evidence of baseline improvement; otherwise reject/inconclusive, never retune final test.",
+      "id": "H07",
+      "title": "Execution-cost robustness",
+      "priority": 1,
+      "source_ids": [
+        "S05",
+        "S07"
+      ],
+      "signal": "Apply H01 variants with verified venue spread, commission and slippage; stress total per-side costs at 1x,1.5x,2x without changing entries. Touch-fill sensitivity must include gaps, adverse selection and uncertain same-bar path; do not claim exact fills from M15 OHLC.",
+      "baseline": "Same signals at measured 1x costs; zero-cost results diagnostic only.",
+      "parameters": {
+        "cost_multipliers": [
+          1,
+          1.5,
+          2
+        ]
+      },
+      "notes": "No broker specs are currently set. Dollar sizing or realistic CFD P&L remains blocked. These are stress scenarios, not a search for the best multiplier."
+    }
+  ]
+}

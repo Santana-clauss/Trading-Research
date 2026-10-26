@@ -1,0 +1,194 @@
+{
+  "review_date": "2026-10-18",
+  "policy": "Curated metadata and original summaries only. Access levels are explicit; no restricted paper scraping or full-paper reproduction.",
+  "sources": [
+    {
+      "id": "S01",
+      "title": "Who sets the price of gold? London or New York",
+      "authors": [
+        "Martin Hauptfleisch",
+        "Talis J. Putnins",
+        "Brian Lucey"
+      ],
+      "year": 2016,
+      "source": "Journal of Futures Markets 36(6), 564-586; University of Edinburgh repository",
+      "url": "https://www.research.ed.ac.uk/en/publications/who-sets-the-price-of-gold-london-or-new-york/",
+      "doi": "10.1002/fut.21775",
+      "classification": "peer_reviewed",
+      "access_reviewed": "Repository abstract and bibliographic record only; full paper not reviewed.",
+      "market_dataset": "London spot and New York gold futures; 17 years of intraday observations.",
+      "methodology": "Comparative price-discovery analysis; full estimator specification requires paper review.",
+      "key_findings": "Both venues contribute; futures contribute more on average, with variation by time and liquidity.",
+      "limitations": "Historical venue comparison; not a test of broker CFDs or order-block entries.",
+      "gold_applicability": "Direct gold context, without an intraday profitability claim.",
+      "hypothesis": "H02 session heterogeneity; separate future synchronized spot/futures study."
+    },
+    {
+      "id": "S02",
+      "title": "The Price Impact of Order Book Events",
+      "authors": [
+        "Rama Cont",
+        "Arseniy Kukanov",
+        "Sasha Stoikov"
+      ],
+      "year": 2014,
+      "source": "Journal of Financial Econometrics 12(1), 47-88; arXiv revision 2011",
+      "url": "https://arxiv.org/html/1011.6402v3",
+      "doi": "10.1093/jjfinec/nbt003",
+      "classification": "peer_reviewed_with_public_preprint",
+      "access_reviewed": "Public HTML abstract, introduction and model sections consulted; not a full replication.",
+      "market_dataset": "US equity trades and quotes/order-book event observations.",
+      "methodology": "Relate short-horizon price changes to order-flow imbalance and market depth.",
+      "key_findings": "Price changes are related to order-flow imbalance; impact depends on depth.",
+      "limitations": "Equities, not gold; OHLCV cannot reconstruct additions, cancellations or trade aggressor direction.",
+      "gold_applicability": "Motivates a future gold quote/depth study; candle volume is not OFI.",
+      "hypothesis": "H04 is only a candle-volume proxy; real OFI testing is blocked without event data."
+    },
+    {
+      "id": "S03",
+      "title": "Commitments of Traders: Explanatory Notes",
+      "authors": [
+        "Commodity Futures Trading Commission"
+      ],
+      "year": null,
+      "source": "CFTC official documentation; checked 2026-10-18",
+      "url": "https://www.cftc.gov/MarketReports/CommitmentsofTraders/ExplanatoryNotes/index.htm",
+      "doi": null,
+      "classification": "official_documentation",
+      "access_reviewed": "Public explanatory documentation consulted.",
+      "market_dataset": "Aggregated reportable futures positions by trader business classification.",
+      "methodology": "Regulatory reporting and category aggregation, not an alpha study.",
+      "key_findings": "Disaggregated categories distinguish producer/merchant, swap dealer, managed money and other reportable participants.",
+      "limitations": "Categories are not identities, intentions or real-time orders; spreading positions are separate.",
+      "gold_applicability": "Use COMEX gold code 088691 and futures-only archives; never mix combined options series.",
+      "hypothesis": "H05 positioning context at weekly horizon only."
+    },
+    {
+      "id": "S04",
+      "title": "COT Release Schedule and Historical Compressed Archives",
+      "authors": [
+        "Commodity Futures Trading Commission"
+      ],
+      "year": null,
+      "source": "CFTC official documentation; checked 2026-10-18",
+      "url": "https://www.cftc.gov/MarketReports/CommitmentsofTraders/ReleaseSchedule/index.htm",
+      "related_urls": [
+        "https://www.cftc.gov/MarketReports/CommitmentsofTraders/HistoricalCompressed/index.htm",
+        "https://www.cftc.gov/MarketReports/CommitmentsofTraders/HistoricalViewable/CFTC_023168.html"
+      ],
+      "doi": null,
+      "classification": "official_documentation",
+      "access_reviewed": "Release schedule, archive index and variable names consulted.",
+      "market_dataset": "Annual disaggregated futures-only CSV archives across contracts.",
+      "methodology": "Observation date and public release are distinct; archives are downloadable ZIP files.",
+      "key_findings": "Usual release is Friday 15:30 Eastern for preceding Tuesday; holidays can delay releases.",
+      "limitations": "A tentative schedule is not proof of actual publication; finalized archives can contain revisions.",
+      "gold_applicability": "Explicit publication evidence or conservative retrieval-time availability is required.",
+      "hypothesis": "H05; historical conclusions require release and vintage audits."
+    },
+    {
+      "id": "S05",
+      "title": "Gold Futures Contract Specifications",
+      "authors": [
+        "CME Group"
+      ],
+      "year": null,
+      "source": "CME Group official product documentation; checked 2026-10-18",
+      "url": "https://www.cmegroup.com/markets/metals/precious/gold.contractSpecs.html",
+      "doi": null,
+      "classification": "official_documentation",
+      "access_reviewed": "Public product page inspected; dynamic specification fields were not fully exposed.",
+      "market_dataset": "COMEX listed gold futures product documentation.",
+      "methodology": "Exchange contract reference, not empirical research.",
+      "key_findings": "Gold futures are a listed exchange product with contract-specific trading and delivery terms.",
+      "limitations": "No contract-size or fee values imported from incompletely exposed fields. Yahoo rolling proxy rules require separate verification.",
+      "gold_applicability": "Do not transfer futures contract terms to broker XAU/USD CFD sizing.",
+      "hypothesis": "H07 execution stress tests require verified venue-specific costs."
+    },
+    {
+      "id": "S06",
+      "title": "Time Series Momentum",
+      "authors": [
+        "Tobias J. Moskowitz",
+        "Yao Hua Ooi",
+        "Lasse H. Pedersen"
+      ],
+      "year": 2012,
+      "source": "Journal of Financial Economics 104(2), 228-250; author-affiliated AQR summary",
+      "url": "https://www.aqr.com/Insights/Research/Journal-Article/Time-Series-Momentum",
+      "doi": null,
+      "classification": "peer_reviewed",
+      "access_reviewed": "Public author-affiliated summary only; full paper not reviewed.",
+      "market_dataset": "58 futures/forward instruments across asset classes over more than 25 years.",
+      "methodology": "Predict returns with instruments' own past returns at multi-month horizons.",
+      "key_findings": "Summary reports trend persistence and later partial reversal.",
+      "limitations": "Monthly/annual effects do not establish H1 BOS or M15 confirmation profitability.",
+      "gold_applicability": "Indirect motivation to test trend rather than assume a gold intraday effect.",
+      "hypothesis": "H01 H1 alignment, explicitly a new hypothesis."
+    },
+    {
+      "id": "S07",
+      "title": "When do stop-loss rules stop losses?",
+      "authors": [
+        "Kathryn M. Kaminski",
+        "Andrew W. Lo"
+      ],
+      "year": 2014,
+      "source": "Journal of Financial Markets 18, 234-254; MIT repository",
+      "url": "https://dspace.mit.edu/entities/publication/bb69ca4b-0cdc-487f-831d-63b2e84fafee",
+      "doi": "10.1016/J.FINMAR.2013.07.001",
+      "classification": "peer_reviewed",
+      "access_reviewed": "MIT repository abstract and citation only; full paper not reviewed.",
+      "market_dataset": "Daily index-futures prices and buy-and-hold exposure policies.",
+      "methodology": "Analytical framework and empirical evaluation of stop-loss overlay policies.",
+      "key_findings": "Some policies at longer sampling frequencies can improve expected return and reduce volatility.",
+      "limitations": "Portfolio exposure policies differ from zone-boundary trade stops; effect is not universal.",
+      "gold_applicability": "Indirect methodology lead; needs gold-specific execution data.",
+      "hypothesis": "H07 predefined cost and stop sensitivity; not parameter selection on the final test."
+    },
+    {
+      "id": "S08",
+      "title": "The Probability of Backtest Overfitting",
+      "authors": [
+        "David H. Bailey",
+        "Jonathan M. Borwein",
+        "Marcos Lopez de Prado",
+        "Qiji Jim Zhu"
+      ],
+      "year": 2015,
+      "source": "Author-hosted working-paper revision dated February 27, 2015",
+      "url": "https://www.davidhbailey.com/dhbpapers/backtest-prob.pdf",
+      "doi": null,
+      "classification": "working_paper_version",
+      "access_reviewed": "Public PDF abstract and introductory methodology excerpts consulted; no full replication.",
+      "market_dataset": "Strategy-selection framework and illustrative performance experiments.",
+      "methodology": "Combinatorially symmetric cross-validation to quantify strategy selection overfitting.",
+      "key_findings": "Selecting from many backtests can produce misleading historical winners.",
+      "limitations": "PBO requires comparable candidate return histories; it is not a significance certificate.",
+      "gold_applicability": "General research design, independent of instrument.",
+      "hypothesis": "All hypotheses: log variants; consider PBO only if candidate matrix justifies it."
+    },
+    {
+      "id": "S09",
+      "title": "yfinance.download API documentation",
+      "authors": [
+        "yfinance maintainers"
+      ],
+      "year": null,
+      "source": "Official project documentation; checked 2026-10-18",
+      "url": "https://ranaroussi.github.io/yfinance/reference/api/yfinance.download.html",
+      "related_urls": [
+        "https://ranaroussi.github.io/yfinance/"
+      ],
+      "doi": null,
+      "classification": "software_documentation",
+      "access_reviewed": "Public API reference inspected.",
+      "market_dataset": "Yahoo-provided historical instruments; GC=F used as gold-futures proxy.",
+      "methodology": "Unofficial Yahoo wrapper with explicit adjustment, repair and missing-row options.",
+      "key_findings": "Intraday availability is limited; documentation states 60 days generally. Actual limits vary and must be checked per request.",
+      "limitations": "No guarantee of completeness, latency or proxy roll construction; personal-use/access terms apply.",
+      "gold_applicability": "Exploratory futures data only; not broker spot CFD history or institutional order flow.",
+      "hypothesis": "Data pipeline validation, not evidence for any trade hypothesis."
+    }
+  ]
+}
